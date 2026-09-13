@@ -1,5 +1,7 @@
 apply plugin: 'com.android.application'
 
+def runNumber = System.getenv("GITHUB_RUN_NUMBER") ? Integer.parseInt(System.getenv("GITHUB_RUN_NUMBER")) : 1
+
 android {
     namespace "com.tianzige.copybook"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +9,8 @@ android {
         applicationId "com.tianzige.copybook"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 100 + runNumber
+        versionName "1.0.${runNumber}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,12 +18,26 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        appSign {
+            storeFile file('meirilianzi.keystore')
+            storePassword 'meirilianzi123'
+            keyAlias 'meirilianzi'
+            keyPassword 'meirilianzi123'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.appSign
+        }
         release {
+            signingConfig signingConfigs.appSign
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

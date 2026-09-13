@@ -56,6 +56,8 @@ jobs:
         run: chmod +x ./android/gradlew
 
       - name: 10. 执行 Gradle 构建 Debug APK (Assemble Debug APK)
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
