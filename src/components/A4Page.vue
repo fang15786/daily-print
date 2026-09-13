@@ -21,10 +21,14 @@ defineProps<{
     <!-- 页面内容主体 -->
     <div
       class="a4-content-wrapper"
-      :class="{ 'has-binding': headerConfig.showBindingGuide }"
+      :class="{
+        'has-binding': headerConfig.showBindingGuide,
+        'no-header': !headerConfig.showHeader,
+        'no-footer': !headerConfig.showFooter && !headerConfig.showPageNumber
+      }"
     >
-      <!-- 页眉区域 -->
-      <header class="sheet-header">
+      <!-- 页眉区域 (可选) -->
+      <header v-if="headerConfig.showHeader" class="sheet-header">
         <div class="header-main-title">
           <h1 class="main-title">{{ headerConfig.title || '汉字田字格笔顺练字帖' }}</h1>
           <span v-if="headerConfig.subTitle" class="sub-title">{{ headerConfig.subTitle }}</span>
@@ -56,9 +60,9 @@ defineProps<{
         <slot />
       </main>
 
-      <!-- 页脚区域 -->
-      <footer class="sheet-footer">
-        <div class="footer-motto">
+      <!-- 页脚区域 (可选) -->
+      <footer v-if="headerConfig.showFooter || headerConfig.showPageNumber" class="sheet-footer">
+        <div v-if="headerConfig.showFooter" class="footer-motto">
           {{ headerConfig.footerMotto || '端端正正写字，堂堂正正做人' }}
         </div>
         <div v-if="headerConfig.showPageNumber" class="footer-page-num">
@@ -123,12 +127,20 @@ defineProps<{
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 10mm 14mm 9mm 14mm;
+  padding: 10mm 14mm 10mm 14mm;
   box-sizing: border-box;
 }
 
 .a4-content-wrapper.has-binding {
   padding-left: 17mm;
+}
+
+.a4-content-wrapper.no-header {
+  padding-top: 12mm;
+}
+
+.a4-content-wrapper.no-footer {
+  padding-bottom: 12mm;
 }
 
 /* 页眉 */

@@ -284,53 +284,58 @@ function applyPreset(text: string, presetMode?: CopybookMode) {
         </div>
       </div>
 
-      <!-- 选项卡 3：页面与页眉页脚 -->
+      <!-- 选项卡 3：页面与辅助元素 -->
       <div v-show="activeTab === 'page'" class="tab-pane">
-        <div class="form-group">
-          <label class="field-label">字帖主标题</label>
-          <input
-            type="text"
-            :value="headerConfig.title"
-            @input="emit('update:headerConfig', { ...headerConfig, title: ($event.target as HTMLInputElement).value })"
-            class="custom-input"
-            placeholder="如：汉字笔顺描红字帖"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="field-label">副标题 / 说明</label>
-          <input
-            type="text"
-            :value="headerConfig.subTitle"
-            @input="emit('update:headerConfig', { ...headerConfig, subTitle: ($event.target as HTMLInputElement).value })"
-            class="custom-input"
-            placeholder="如：一年级每日规范练字"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="field-label">底部励志寄语</label>
-          <input
-            type="text"
-            :value="headerConfig.footerMotto"
-            @input="emit('update:headerConfig', { ...headerConfig, footerMotto: ($event.target as HTMLInputElement).value })"
-            class="custom-input"
-            placeholder="如：端端正正写字，堂堂正正做人"
-          />
-        </div>
-
+        <!-- 顶部页眉开关 -->
         <div class="form-group toggle-group">
           <label class="toggle-label">
             <input
               type="checkbox"
-              :checked="headerConfig.showStudentInfo"
-              @change="emit('update:headerConfig', { ...headerConfig, showStudentInfo: ($event.target as HTMLInputElement).checked })"
+              :checked="headerConfig.showHeader"
+              @change="emit('update:headerConfig', { ...headerConfig, showHeader: ($event.target as HTMLInputElement).checked })"
               class="custom-checkbox"
             />
-            <span class="toggle-text">显示姓名、班级、日期与自评五星</span>
+            <span class="toggle-text"><strong>显示顶部标题与页眉</strong></span>
           </label>
         </div>
 
+        <div v-if="headerConfig.showHeader" class="sub-form-block">
+          <div class="form-group">
+            <label class="field-label">字帖主标题</label>
+            <input
+              type="text"
+              :value="headerConfig.title"
+              @input="emit('update:headerConfig', { ...headerConfig, title: ($event.target as HTMLInputElement).value })"
+              class="custom-input"
+              placeholder="如：汉字笔顺描红字帖"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="field-label">副标题 / 说明</label>
+            <input
+              type="text"
+              :value="headerConfig.subTitle"
+              @input="emit('update:headerConfig', { ...headerConfig, subTitle: ($event.target as HTMLInputElement).value })"
+              class="custom-input"
+              placeholder="如：一年级每日规范练字"
+            />
+          </div>
+
+          <div class="form-group toggle-group">
+            <label class="toggle-label">
+              <input
+                type="checkbox"
+                :checked="headerConfig.showStudentInfo"
+                @change="emit('update:headerConfig', { ...headerConfig, showStudentInfo: ($event.target as HTMLInputElement).checked })"
+                class="custom-checkbox"
+              />
+              <span class="toggle-text">包含姓名、班级、日期与自评五星</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 左侧装订线开关 -->
         <div class="form-group toggle-group">
           <label class="toggle-label">
             <input
@@ -339,10 +344,37 @@ function applyPreset(text: string, presetMode?: CopybookMode) {
               @change="emit('update:headerConfig', { ...headerConfig, showBindingGuide: ($event.target as HTMLInputElement).checked })"
               class="custom-checkbox"
             />
-            <span class="toggle-text">显示左侧装订裁切虚线</span>
+            <span class="toggle-text"><strong>显示左侧装订裁切线</strong></span>
           </label>
         </div>
 
+        <!-- 底部寄语页脚开关 -->
+        <div class="form-group toggle-group">
+          <label class="toggle-label">
+            <input
+              type="checkbox"
+              :checked="headerConfig.showFooter"
+              @change="emit('update:headerConfig', { ...headerConfig, showFooter: ($event.target as HTMLInputElement).checked })"
+              class="custom-checkbox"
+            />
+            <span class="toggle-text"><strong>显示底部励志寄语</strong></span>
+          </label>
+        </div>
+
+        <div v-if="headerConfig.showFooter" class="sub-form-block">
+          <div class="form-group">
+            <label class="field-label">寄语内容</label>
+            <input
+              type="text"
+              :value="headerConfig.footerMotto"
+              @input="emit('update:headerConfig', { ...headerConfig, footerMotto: ($event.target as HTMLInputElement).value })"
+              class="custom-input"
+              placeholder="如：端端正正写字，堂堂正正做人"
+            />
+          </div>
+        </div>
+
+        <!-- 页脚页码开关 -->
         <div class="form-group toggle-group">
           <label class="toggle-label">
             <input
@@ -698,6 +730,15 @@ function applyPreset(text: string, presetMode?: CopybookMode) {
   height: 16px;
   accent-color: #c83c23;
   cursor: pointer;
+}
+
+.sub-form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 12px;
+  border-left: 2px solid #e2e8f0;
+  margin: 2px 0 6px 6px;
 }
 
 .toggle-text {

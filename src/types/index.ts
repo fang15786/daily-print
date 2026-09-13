@@ -19,12 +19,14 @@ export interface GridStyleConfig {
 }
 
 export interface HeaderFooterConfig {
+  showHeader: boolean; // 是否显示顶部页眉（标题、副标题、学生信息）
   title: string;
   subTitle: string;
-  showStudentInfo: boolean; // Name, Class, Date, Score
-  showBindingGuide: boolean; // Left binding perforation guideline
-  footerMotto: string; // e.g. "端端正正写字，堂堂正正做人"
-  showPageNumber: boolean;
+  showStudentInfo: boolean; // 姓名、班级、日期、自评
+  showBindingGuide: boolean; // 左侧装订裁切线
+  showFooter: boolean; // 是否显示底部页脚（寄语）
+  footerMotto: string; // 励志格言
+  showPageNumber: boolean; // 是否显示页码
 }
 
 export interface StrokeStepItem {

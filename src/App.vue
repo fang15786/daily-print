@@ -40,14 +40,16 @@ const gridConfig = ref<GridStyleConfig>({
   showMeta: true
 });
 
-// 页眉页脚配置
+// 页眉页脚配置（默认不显示顶部标题栏、左侧装订线和底部寄语，纯净全纸排版）
 const headerConfig = ref<HeaderFooterConfig>({
+  showHeader: false,
   title: '汉字笔顺田字格描红帖',
   subTitle: '每日十分钟 · 规范汉字书写',
-  showStudentInfo: true,
-  showBindingGuide: true,
+  showStudentInfo: false,
+  showBindingGuide: false,
+  showFooter: false,
   footerMotto: '端端正正写字，堂堂正正做人',
-  showPageNumber: true
+  showPageNumber: false
 });
 
 // 字符数据缓存
@@ -94,13 +96,16 @@ const colsCount = computed(() => {
   return 10;
 });
 
-// 计算每页最大容纳行数
+// 计算每页最大容纳行数（根据是否开启页眉/页脚动态释放纸张高度空间）
 const rowsPerPage = computed(() => {
   const size = gridConfig.value.gridSizeMm || 18;
   const withPinyin = gridConfig.value.showPinyin;
   const rowHeightMm = withPinyin ? size * 1.45 + 3 : size + 3;
-  // A4 可用主体高度约 240mm
-  return Math.max(4, Math.floor(240 / rowHeightMm));
+  // A4 总高 297mm，基准上下边距约 22mm
+  let availableHeight = 297 - 22;
+  if (headerConfig.value.showHeader) availableHeight -= 28;
+  if (headerConfig.value.showFooter || headerConfig.value.showPageNumber) availableHeight -= 15;
+  return Math.max(4, Math.floor(availableHeight / rowHeightMm));
 });
 
 // 页面数据结构：模式 1（笔顺模式）分页
@@ -270,12 +275,14 @@ function handleReset() {
     showMeta: true
   };
   headerConfig.value = {
+    showHeader: false,
     title: '汉字笔顺田字格描红帖',
     subTitle: '每日十分钟 · 规范汉字书写',
-    showStudentInfo: true,
-    showBindingGuide: true,
+    showStudentInfo: false,
+    showBindingGuide: false,
+    showFooter: false,
     footerMotto: '端端正正写字，堂堂正正做人',
-    showPageNumber: true
+    showPageNumber: false
   };
 }
 
