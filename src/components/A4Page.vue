@@ -137,11 +137,11 @@ defineProps<{
 }
 
 .a4-content-wrapper.no-header {
-  padding-top: 12mm;
+  padding-top: 1.5mm;
 }
 
 .a4-content-wrapper.no-footer {
-  padding-bottom: 12mm;
+  padding-bottom: 1.5mm;
 }
 
 /* 页眉 */

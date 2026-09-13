@@ -62,8 +62,8 @@ const sizeOptions = [
 
 // 描红颜色选项
 const tracingOptions: { label: string; value: TracingColor }[] = [
-  { label: '浅朱砂 (传统描红)', value: 'cinnabar' },
   { label: '铅笔浅灰 (仿真铅笔)', value: 'gray' },
+  { label: '浅朱砂 (传统描红)', value: 'cinnabar' },
   { label: '淡水墨 (浅墨痕)', value: 'ink_light' }
 ];
 
@@ -266,6 +266,29 @@ function applyPreset(text: string, presetMode?: CopybookMode) {
               @click="emit('update:gridConfig', { ...gridConfig, tracingColor: t.value })"
             >
               {{ t.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 笔顺分步风格 -->
+        <div v-if="mode === 'stroke_order'" class="form-group">
+          <label class="field-label">笔顺分步风格</label>
+          <div class="button-group-row">
+            <button
+              type="button"
+              class="sub-btn"
+              :class="{ active: (gridConfig.strokePracticeStyle || 'light_tracing') === 'light_tracing' }"
+              @click="emit('update:gridConfig', { ...gridConfig, strokePracticeStyle: 'light_tracing' })"
+            >
+              浅色描红 (铅笔练写)
+            </button>
+            <button
+              type="button"
+              class="sub-btn"
+              :class="{ active: gridConfig.strokePracticeStyle === 'solid_highlight' }"
+              @click="emit('update:gridConfig', { ...gridConfig, strokePracticeStyle: 'solid_highlight' })"
+            >
+              黑红示范 (观摩笔顺)
             </button>
           </div>
         </div>

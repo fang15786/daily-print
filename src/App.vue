@@ -14,7 +14,7 @@ import html2canvas from 'html2canvas';
 const mode = ref<CopybookMode>('stroke_order');
 
 // 输入文本默认值（精选生字）
-const inputText = ref('天地人你我他一二三四五上下');
+const inputText = ref('汤知越汤知越汤知越汤知越汤知越汤知越汤知越');
 
 // 缩放比例
 const zoomLevel = ref(90);
@@ -32,9 +32,10 @@ const gridConfig = ref<GridStyleConfig>({
   gridLineColor: '#e06a55',
   gridLineWidth: 1,
   innerLineStyle: 'dashed',
-  charColor: '#1a1a1a',
-  tracingColor: 'cinnabar',
-  tracingOpacity: 0.35,
+  charColor: '#000000',
+  tracingColor: 'gray', // 默认铅笔浅灰，打印清晰不重影
+  tracingOpacity: 0.45,
+  strokePracticeStyle: 'light_tracing', // 默认使用纯浅色做笔顺练习
   showPinyin: false,
   pinyinStyle: 'four_lines',
   showMeta: true
@@ -102,11 +103,12 @@ const rowsPerPage = computed(() => {
   const size = gridConfig.value.gridSizeMm || 14;
   const withPinyin = gridConfig.value.showPinyin;
   const rowHeightMm = withPinyin ? size * 1.55 : size;
-  // A4 总高 297mm，基准上下边距约 26mm
-  let availableHeight = 297 - 26;
-  if (headerConfig.value.showHeader) availableHeight -= 28;
-  if (headerConfig.value.showFooter || headerConfig.value.showPageNumber) availableHeight -= 15;
-  return Math.max(4, Math.floor(availableHeight / rowHeightMm));
+  // A4 总高 297mm，无页眉页脚纯净排版时预留约 3mm（上下各 1.5mm），14mm 格子恰好排满 21 行
+  let reservedMargin = 3;
+  if (headerConfig.value.showHeader) reservedMargin += 28;
+  if (headerConfig.value.showFooter || headerConfig.value.showPageNumber) reservedMargin += 15;
+  const availableHeight = 297 - reservedMargin;
+  return Math.max(4, Math.floor((availableHeight + 0.01) / rowHeightMm));
 });
 
 // 页面数据结构：模式 1（笔顺模式）分页
@@ -132,92 +134,9 @@ const strokeOrderPages = computed(() => {
   return pages.length > 0 ? pages : [[]];
 });
 
-// 页面数据结构：模式 2（连续排版模式）分页
-const continuousPages = computed(() => {
-  const chars = rawChineseChars.value;
-  const cols = colsCount.value;
-  const rows = rowsPerPage.value;
-
-  // 将字符切分成行，每行附带 1 行范字 + 1 行描红 + 1 行自写（经典三行临摹法）
-  interface ContinuousCell {
-    char: string;
-    pinyin: string;
-    strokes?: string[];
-    isTracing: boolean;
-    isBlank: boolean;
-    isModel?: boolean;
-  }
-
-  const allRows: ContinuousCell[][] = [];
-
-  // 按每 cols 个字切分输入内容
-  for (let i = 0; i < chars.length; i += cols) {
-    const slice = chars.slice(i, i + cols);
-
-    // 行 1：范字
-    const modelRow: ContinuousCell[] = [];
-    // 行 2：描红
-    const traceRow: ContinuousCell[] = [];
-    // 行 3：自主练写空白格
-    const blankRow: ContinuousCell[] = [];
-
-    slice.forEach((char) => {
-      const item = loadedCharsMap.value.get(char);
-      const strokes = item?.strokes || [];
-      const pinyin = item?.pinyin || '';
-
-      modelRow.push({
-        char,
-        pinyin,
-        strokes,
-        isTracing: false,
-        isBlank: false,
-        isModel: true
-      });
-
-      traceRow.push({
-        char,
-        pinyin,
-        strokes,
-        isTracing: true,
-        isBlank: false
-      });
-
-      blankRow.push({
-        char: '',
-        pinyin: '',
-        strokes: [],
-        isTracing: false,
-        isBlank: true
-      });
-    });
-
-    // 补齐行尾空白格
-    while (modelRow.length < cols) {
-      modelRow.push({ char: '', pinyin: '', isTracing: false, isBlank: true });
-      traceRow.push({ char: '', pinyin: '', isTracing: false, isBlank: true });
-      blankRow.push({ char: '', pinyin: '', isTracing: false, isBlank: true });
-    }
-
-    allRows.push(modelRow);
-    allRows.push(traceRow);
-    allRows.push(blankRow);
-  }
-
-  // 分页划分
-  const pages: ContinuousCell[][][] = [];
-  for (let i = 0; i < allRows.length; i += rows) {
-    pages.push(allRows.slice(i, i + rows));
-  }
-
-  return pages.length > 0 ? pages : [[]];
-});
-
-// 总页数
+// 总页数（笔顺分步与全文练写均基于标准生字分页，排版一致）
 const totalPages = computed(() => {
-  return mode.value === 'stroke_order'
-    ? strokeOrderPages.value.length
-    : continuousPages.value.length;
+  return strokeOrderPages.value.length;
 });
 
 // 缩放后舞台实际高度（mm），避免缩放后容器高度过高产生多余空白
@@ -319,16 +238,17 @@ async function handleExportPdf() {
 
 // 重置默认配置
 function handleReset() {
-  inputText.value = '天地人你我他一二三四五上下';
+  inputText.value = '汤知越汤知越汤知越汤知越汤知越汤知越汤知越';
   gridConfig.value = {
     gridType: 'mi',
     gridSizeMm: 14,
     gridLineColor: '#e06a55',
     gridLineWidth: 1,
     innerLineStyle: 'dashed',
-    charColor: '#1a1a1a',
-    tracingColor: 'cinnabar',
-    tracingOpacity: 0.35,
+    charColor: '#000000',
+    tracingColor: 'gray',
+    tracingOpacity: 0.45,
+    strokePracticeStyle: 'light_tracing',
     showPinyin: false,
     pinyinStyle: 'four_lines',
     showMeta: true
@@ -406,49 +326,25 @@ onMounted(() => {
               width: '210mm'
             }"
           >
-            <!-- 笔顺分步模式渲染 -->
-            <template v-if="mode === 'stroke_order'">
-              <A4Page
-                v-for="(pageChars, pIdx) in strokeOrderPages"
-                :key="pIdx"
-                :page-index="pIdx + 1"
-                :total-pages="totalPages"
-                :grid-config="gridConfig"
-                :header-config="headerConfig"
+            <!-- 字帖排版渲染（支持笔顺分步与全文完整字练写，排版与行数完全一致） -->
+            <A4Page
+              v-for="(pageChars, pIdx) in strokeOrderPages"
+              :key="pIdx"
+              :page-index="pIdx + 1"
+              :total-pages="totalPages"
+              :grid-config="gridConfig"
+              :header-config="headerConfig"
+              :cols-count="colsCount"
+            >
+              <CopybookRow
+                v-for="(item, rIdx) in pageChars"
+                :key="rIdx"
+                :mode="mode"
+                :char-item="item"
                 :cols-count="colsCount"
-              >
-                <CopybookRow
-                  v-for="(item, rIdx) in pageChars"
-                  :key="rIdx"
-                  :mode="'stroke_order'"
-                  :char-item="item"
-                  :cols-count="colsCount"
-                  :grid-config="gridConfig"
-                />
-              </A4Page>
-            </template>
-
-            <!-- 连续课文/唐诗模式渲染 -->
-            <template v-else-if="mode === 'continuous'">
-              <A4Page
-                v-for="(pageRows, pIdx) in continuousPages"
-                :key="pIdx"
-                :page-index="pIdx + 1"
-                :total-pages="totalPages"
                 :grid-config="gridConfig"
-                :header-config="headerConfig"
-                :cols-count="colsCount"
-              >
-                <CopybookRow
-                  v-for="(rowCells, rIdx) in pageRows"
-                  :key="rIdx"
-                  :mode="'continuous'"
-                  :continuous-cells="rowCells"
-                  :cols-count="colsCount"
-                  :grid-config="gridConfig"
-                />
-              </A4Page>
-            </template>
+              />
+            </A4Page>
           </div>
         </div>
 

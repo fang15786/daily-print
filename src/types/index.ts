@@ -13,6 +13,7 @@ export interface GridStyleConfig {
   charColor: string; // '#1a1a1a'
   tracingColor: TracingColor;
   tracingOpacity: number; // 0.25 - 0.5
+  strokePracticeStyle?: 'light_tracing' | 'solid_highlight'; // 'light_tracing' 纯浅色描红练笔顺, 'solid_highlight' 实体黑字示范
   showPinyin: boolean;
   pinyinStyle: 'four_lines' | 'clean'; // whether to show 4-line 3-space guide
   showMeta: boolean; // whether to show radical & stroke count tag
