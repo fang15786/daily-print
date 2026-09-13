@@ -70,6 +70,7 @@ jobs:
       - name: 12. 发布到 GitHub Releases Assets (永久有效、手机直链下载)
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        continue-on-error: true
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: "每日练字 v1.0.${{ github.run_number }}"
@@ -92,6 +93,7 @@ jobs:
 
       - name: 13. 保留 Actions Artifact 备份 (Backup Artifact)
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: meirilianzi-android-debug-apk
           path: dist-apk/*.apk
