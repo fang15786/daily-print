@@ -122,18 +122,18 @@ defineProps<{
   font-family: system-ui, sans-serif;
 }
 
-/* 主内容区域内边距 */
+/* 主内容区域内边距：左右各留 7mm 紧凑边距，尽量写满纸张 */
 .a4-content-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 10mm 14mm 10mm 14mm;
+  padding: 10mm 7mm 10mm 7mm;
   box-sizing: border-box;
 }
 
 .a4-content-wrapper.has-binding {
-  padding-left: 18mm;
-  padding-right: 10mm;
+  padding-left: 14mm;
+  padding-right: 7mm;
 }
 
 .a4-content-wrapper.no-header {

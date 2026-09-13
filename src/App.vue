@@ -7,6 +7,7 @@ import HeaderBar from './components/HeaderBar.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import A4Page from './components/A4Page.vue';
 import CopybookRow from './components/CopybookRow.vue';
+import { Printer, FileDown } from 'lucide-vue-next';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -21,6 +22,9 @@ const zoomLevel = ref(90);
 
 // 移动端当前活动视图
 const mobileActiveView = ref<'settings' | 'preview'>('settings');
+
+// 打印份数（每次打印几张/几份）
+const printCopies = ref(1);
 
 // 加载状态
 const isLoading = ref(false);
@@ -89,13 +93,14 @@ watch(
   { immediate: true }
 );
 
-// 计算每行容纳的格子数量 (以 182mm 净宽计算，14mm 恰好容纳 13 格)
+// 计算每行容纳的格子数量（紧凑排满 A4 纸宽 210mm，左右仅留约 5~7mm 紧凑边距）
 const colsCount = computed(() => {
   const size = gridConfig.value.gridSizeMm || 14;
-  if (size <= 14) return 13;
-  if (size <= 16) return 12;
-  if (size >= 20) return 9;
-  return 10;
+  if (size <= 14) return 14; // 14mm: 14 格 (196mm，左右各留 7mm 紧凑边距)
+  if (size <= 16) return 12; // 16mm: 12 格 (192mm，左右各留 9mm 边距)
+  if (size <= 18) return 11; // 18mm: 11 格 (198mm，左右各留 6mm 边距)
+  if (size >= 20) return 10; // 20mm: 10 格 (200mm，左右各留 5mm 边距)
+  return 11;
 });
 
 // 计算每页最大容纳行数（根据是否开启页眉/页脚动态释放纸张高度空间，行间距已紧密贴合）
@@ -134,14 +139,31 @@ const strokeOrderPages = computed(() => {
   return pages.length > 0 ? pages : [[]];
 });
 
-// 总页数（笔顺分步与全文练写均基于标准生字分页，排版一致）
+// 总页数（基础页数）
 const totalPages = computed(() => {
   return strokeOrderPages.value.length;
 });
 
-// 缩放后舞台实际高度（mm），避免缩放后容器高度过高产生多余空白
+// 最终渲染到纸张的页面列表（支持打印份数，生成多份逐份输出，打印机与 PDF 均可一次性输出指定张数）
+const renderedPages = computed(() => {
+  const basePages = strokeOrderPages.value;
+  const copies = Math.max(1, Math.min(50, printCopies.value));
+  const result: { pageChars: CharacterItem[]; pageIndex: number; copyIndex: number }[] = [];
+  for (let c = 1; c <= copies; c++) {
+    for (let p = 0; p < basePages.length; p++) {
+      result.push({
+        pageChars: basePages[p],
+        pageIndex: p + 1,
+        copyIndex: c
+      });
+    }
+  }
+  return result;
+});
+
+// 缩放后舞台实际高度（mm），根据实际渲染张数计算
 const stageHeightMm = computed(() => {
-  const pages = Math.max(1, totalPages.value);
+  const pages = Math.max(1, renderedPages.value.length);
   const totalUnscaledMm = pages * 297 + (pages - 1) * 7.4;
   return Math.round((totalUnscaledMm * zoomLevel.value) / 100);
 });
@@ -179,6 +201,22 @@ watch(
     }
   }
 );
+
+// 打印配置弹窗状态
+const showPrintModal = ref(false);
+
+function openPrintModal() {
+  showPrintModal.value = true;
+}
+
+function confirmPrintAction(action: 'print' | 'pdf') {
+  showPrintModal.value = false;
+  if (action === 'print') {
+    handlePrint();
+  } else {
+    handleExportPdf();
+  }
+}
 
 // 打印功能（电脑端调用浏览器打印预览，手机 APK 内调用 Android 原生 PrintManager）
 function handlePrint() {
@@ -263,6 +301,7 @@ function handleReset() {
     footerMotto: '端端正正写字，堂堂正正做人',
     showPageNumber: false
   };
+  printCopies.value = 1;
 }
 
 onMounted(() => {
@@ -281,7 +320,8 @@ onMounted(() => {
     <HeaderBar
       v-model:zoom-level="zoomLevel"
       v-model:mobile-active-view="mobileActiveView"
-      @print="handlePrint"
+      :print-copies="printCopies"
+      @print="openPrintModal"
     />
 
     <!-- 主体区域 -->
@@ -296,9 +336,10 @@ onMounted(() => {
           v-model:input-text="inputText"
           v-model:grid-config="gridConfig"
           v-model:header-config="headerConfig"
+          v-model:print-copies="printCopies"
           :is-loading="isLoading"
-          @print="handlePrint"
-          @export-pdf="handleExportPdf"
+          @print="openPrintModal"
+          @export-pdf="openPrintModal"
           @reset="handleReset"
         />
       </div>
@@ -326,18 +367,18 @@ onMounted(() => {
               width: '210mm'
             }"
           >
-            <!-- 字帖排版渲染（支持笔顺分步与全文完整字练写，排版与行数完全一致） -->
+            <!-- 字帖排版渲染（支持多份打印，生成指定张数） -->
             <A4Page
-              v-for="(pageChars, pIdx) in strokeOrderPages"
-              :key="pIdx"
-              :page-index="pIdx + 1"
+              v-for="(pageItem, idx) in renderedPages"
+              :key="idx"
+              :page-index="pageItem.pageIndex"
               :total-pages="totalPages"
               :grid-config="gridConfig"
               :header-config="headerConfig"
               :cols-count="colsCount"
             >
               <CopybookRow
-                v-for="(item, rIdx) in pageChars"
+                v-for="(item, rIdx) in pageItem.pageChars"
                 :key="rIdx"
                 :mode="mode"
                 :char-item="item"
@@ -390,6 +431,106 @@ onMounted(() => {
         <span>正在生成矢量字帖笔画...</span>
       </div>
     </div>
+
+    <!-- 打印与份数设置弹窗 -->
+    <Teleport to="body">
+      <div
+        v-if="showPrintModal"
+        class="modal-backdrop"
+        @click.self="showPrintModal = false"
+      >
+        <div class="print-dialog-card">
+          <div class="dialog-header">
+            <div class="dialog-title-group">
+              <Printer class="dialog-title-icon" :size="20" />
+              <h3 class="dialog-title">打印配置</h3>
+            </div>
+            <button
+              type="button"
+              class="dialog-close-btn"
+              @click="showPrintModal = false"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="dialog-body">
+            <!-- 页面概览信息 -->
+            <div class="print-info-badge">
+              <span>📄 当前字帖共 <strong>{{ strokeOrderPages.length }}</strong> 页 A4 纸（{{ rawChineseChars.length }} 个汉字）</span>
+            </div>
+
+            <!-- 打印张数/份数设置 -->
+            <div class="dialog-form-group">
+              <label class="dialog-label">本次打印份数 / 张数</label>
+              <div class="dialog-copies-control">
+                <div class="dialog-stepper">
+                  <button
+                    type="button"
+                    class="stepper-action-btn"
+                    :disabled="printCopies <= 1"
+                    @click="printCopies = Math.max(1, printCopies - 1)"
+                  >
+                    －
+                  </button>
+                  <span class="stepper-count">{{ printCopies }} 份</span>
+                  <button
+                    type="button"
+                    class="stepper-action-btn"
+                    :disabled="printCopies >= 50"
+                    @click="printCopies = Math.min(50, printCopies + 1)"
+                  >
+                    ＋
+                  </button>
+                </div>
+
+                <div class="dialog-chips">
+                  <button
+                    v-for="num in [1, 2, 3, 5]"
+                    :key="num"
+                    type="button"
+                    class="dialog-chip-btn"
+                    :class="{ active: printCopies === num }"
+                    @click="printCopies = num"
+                  >
+                    {{ num }}份
+                  </button>
+                </div>
+              </div>
+              <p class="dialog-copies-tip">
+                将一次性生成 <strong>{{ strokeOrderPages.length * printCopies }}</strong> 张 A4 纸（共 {{ printCopies }} 份练习帖）
+              </p>
+            </div>
+          </div>
+
+          <div class="dialog-footer">
+            <button
+              type="button"
+              class="dialog-btn cancel-btn"
+              @click="showPrintModal = false"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              class="dialog-btn secondary-action-btn"
+              @click="confirmPrintAction('pdf')"
+            >
+              <FileDown :size="16" />
+              <span>下载 PDF ({{ printCopies }}份)</span>
+            </button>
+            <button
+              type="button"
+              class="dialog-btn primary-action-btn"
+              @click="confirmPrintAction('print')"
+            >
+              <Printer :size="16" />
+              <span>立即打印 ({{ printCopies }}份)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -572,5 +713,265 @@ onMounted(() => {
     transform: none !important;
     width: auto !important;
   }
+
+  .modal-backdrop {
+    display: none !important;
+  }
+}
+
+/* 打印弹窗样式 */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.18s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.print-dialog-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dialog-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog-title-icon {
+  color: #c83c23;
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.dialog-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.dialog-close-btn:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+
+.dialog-body {
+  padding: 18px 20px;
+}
+
+.print-info-badge {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: #475569;
+  margin-bottom: 16px;
+}
+
+.print-info-badge strong {
+  color: #c83c23;
+}
+
+.dialog-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.dialog-copies-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-stepper {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.stepper-action-btn {
+  width: 38px;
+  height: 38px;
+  background: #f8fafc;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.stepper-action-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.stepper-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stepper-count {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.dialog-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.dialog-chip-btn {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dialog-chip-btn:hover {
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+.dialog-chip-btn.active {
+  background: #c83c23;
+  color: #ffffff;
+  border-color: #c83c23;
+}
+
+.dialog-copies-tip {
+  margin: 6px 0 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.dialog-copies-tip strong {
+  color: #c83c23;
+}
+
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+}
+
+.dialog-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.cancel-btn {
+  background: transparent;
+  color: #64748b;
+}
+
+.cancel-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.secondary-action-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+.secondary-action-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.primary-action-btn {
+  background: #c83c23;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(200, 60, 35, 0.25);
+}
+
+.primary-action-btn:hover {
+  background: #b3321b;
 }
 </style>

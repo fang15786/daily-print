@@ -4,6 +4,7 @@ import { Printer, ZoomIn, ZoomOut, Smartphone, Monitor } from 'lucide-vue-next';
 defineProps<{
   zoomLevel: number;
   mobileActiveView: 'settings' | 'preview';
+  printCopies?: number;
 }>();
 
 const emit = defineEmits<{
