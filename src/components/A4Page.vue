@@ -212,14 +212,14 @@ defineProps<{
   color: #c83c23;
 }
 
-/* 内容主体 */
+/* 内容主体：上下格子紧密贴合无间距 */
 .sheet-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  gap: 3mm;
+  gap: 0;
   overflow: hidden;
 }
 

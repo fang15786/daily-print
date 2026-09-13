@@ -97,13 +97,13 @@ const colsCount = computed(() => {
   return 10;
 });
 
-// 计算每页最大容纳行数（根据是否开启页眉/页脚动态释放纸张高度空间）
+// 计算每页最大容纳行数（根据是否开启页眉/页脚动态释放纸张高度空间，行间距已紧密贴合）
 const rowsPerPage = computed(() => {
-  const size = gridConfig.value.gridSizeMm || 18;
+  const size = gridConfig.value.gridSizeMm || 14;
   const withPinyin = gridConfig.value.showPinyin;
-  const rowHeightMm = withPinyin ? size * 1.55 + 3 : size + 3;
-  // A4 总高 297mm，基准上下边距约 22mm
-  let availableHeight = 297 - 22;
+  const rowHeightMm = withPinyin ? size * 1.55 : size;
+  // A4 总高 297mm，基准上下边距约 26mm
+  let availableHeight = 297 - 26;
   if (headerConfig.value.showHeader) availableHeight -= 28;
   if (headerConfig.value.showFooter || headerConfig.value.showPageNumber) availableHeight -= 15;
   return Math.max(4, Math.floor(availableHeight / rowHeightMm));
