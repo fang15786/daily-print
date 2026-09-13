@@ -219,9 +219,13 @@ const totalPages = computed(() => {
     : continuousPages.value.length;
 });
 
-// 打印功能
+// 打印功能（电脑端调用浏览器打印预览，手机 APK 内调用 Android 原生 PrintManager）
 function handlePrint() {
-  window.print();
+  if (typeof window !== 'undefined' && window.AndroidPrinter && typeof window.AndroidPrinter.print === 'function') {
+    window.AndroidPrinter.print();
+  } else {
+    window.print();
+  }
 }
 
 // 导出 PDF 功能

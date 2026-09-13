@@ -56,3 +56,11 @@ export interface PageLayoutConfig {
   colsPerPage: number;
   rowsPerPage: number;
 }
+
+declare global {
+  interface Window {
+    AndroidPrinter?: {
+      print: () => void;
+    };
+  }
+}
