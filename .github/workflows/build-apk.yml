@@ -9,7 +9,7 @@ on:
     branches:
       - main
       - master
-  workflow_dispatch: # 支持在 GitHub Actions 页面手动点击一键打包
+  workflow_dispatch:
 
 jobs:
   build:
@@ -38,21 +38,25 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 6. 配置 Android SDK 构建环境 (Setup Android SDK)
-        uses: android-actions/setup-android@v3
+      - name: 6. 自动接受 Android SDK 协议 (Accept Android SDK Licenses)
+        run: |
+          yes | sdkmanager --licenses || true
 
-      - name: 7. 同步 Capacitor 资源到 Android (Capacitor Sync)
+      - name: 7. 配置 Gradle 自动化构建环境 (Setup Gradle)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 8. 同步 Capacitor 资源到 Android (Capacitor Sync)
         run: npx cap sync android
 
-      - name: 8. 赋予 Gradle 包装器执行权限 (Chmod gradlew)
+      - name: 9. 赋予 Gradle 包装器执行权限 (Chmod gradlew)
         run: chmod +x ./android/gradlew
 
-      - name: 9. 执行 Gradle 构建 Debug APK (Assemble Debug APK)
+      - name: 10. 执行 Gradle 构建 Debug APK (Assemble Debug APK)
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: 10. 上传 APK 产物供一键下载 (Upload APK Artifact)
+      - name: 11. 上传 APK 产物供一键下载 (Upload APK Artifact)
         uses: actions/upload-artifact@v4
         with:
           name: tianzige-copybook-android-debug-apk
