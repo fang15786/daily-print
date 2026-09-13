@@ -23,6 +23,8 @@ defineProps<{
       class="a4-content-wrapper"
       :class="{
         'has-binding': headerConfig.showBindingGuide,
+        'margin-binding': (headerConfig.marginLayout || 'binding') === 'binding',
+        'margin-centered': headerConfig.marginLayout === 'centered',
         'no-header': !headerConfig.showHeader,
         'no-footer': !headerConfig.showFooter && !headerConfig.showPageNumber
       }"
@@ -30,7 +32,7 @@ defineProps<{
       <!-- 页眉区域 (可选) -->
       <header v-if="headerConfig.showHeader" class="sheet-header">
         <div class="header-main-title">
-          <h1 class="main-title">{{ headerConfig.title || '汉字田字格笔顺练字帖' }}</h1>
+          <h1 class="main-title">{{ headerConfig.title || '汉字规范练字帖' }}</h1>
           <span v-if="headerConfig.subTitle" class="sub-title">{{ headerConfig.subTitle }}</span>
         </div>
 
@@ -60,8 +62,12 @@ defineProps<{
         <slot />
       </main>
 
-      <!-- 页脚区域 (可选) -->
-      <footer v-if="headerConfig.showFooter || headerConfig.showPageNumber" class="sheet-footer">
+      <!-- 页脚区域 (页码及励志寄语) -->
+      <footer
+        v-if="headerConfig.showFooter || headerConfig.showPageNumber"
+        class="sheet-footer"
+        :class="{ 'has-only-page-num': !headerConfig.showFooter && headerConfig.showPageNumber }"
+      >
         <div v-if="headerConfig.showFooter" class="footer-motto">
           {{ headerConfig.footerMotto || '端端正正写字，堂堂正正做人' }}
         </div>
@@ -122,26 +128,32 @@ defineProps<{
   font-family: system-ui, sans-serif;
 }
 
-/* 主内容区域内边距：左右各留 7mm 紧凑边距，尽量写满纸张 */
+/* 主内容区域内边距：列数减2后总宽168mm，默认左宽右窄（左28mm装订留白，右14mm紧凑） */
 .a4-content-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 10mm 7mm 10mm 7mm;
+  padding: 8mm 14mm 6mm 28mm;
   box-sizing: border-box;
 }
 
+/* 左右对称居中模式（左右各21mm） */
+.a4-content-wrapper.margin-centered {
+  padding: 8mm 21mm 6mm 21mm;
+}
+
+/* 开启左侧裁切装订线时 */
 .a4-content-wrapper.has-binding {
-  padding-left: 14mm;
-  padding-right: 7mm;
+  padding-left: 32mm;
+  padding-right: 10mm;
 }
 
 .a4-content-wrapper.no-header {
-  padding-top: 1.5mm;
+  padding-top: 8mm;
 }
 
 .a4-content-wrapper.no-footer {
-  padding-bottom: 1.5mm;
+  padding-bottom: 8mm;
 }
 
 /* 页眉 */
@@ -212,15 +224,37 @@ defineProps<{
   color: #c83c23;
 }
 
-/* 内容主体：上下格子紧密贴合无间距 */
+/* 内容主体：默认靠右对齐，确保右边空白少（3mm紧凑），左侧空白多，适合装订 */
 .sheet-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: center;
+  align-items: flex-end;
   gap: 0;
   overflow: hidden;
+}
+
+.sheet-body :deep(.copybook-row) {
+  align-items: flex-end;
+}
+
+.sheet-body :deep(.cells-flex) {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* 居中模式时靠中对齐 */
+.a4-content-wrapper.margin-centered .sheet-body {
+  align-items: center;
+}
+
+.a4-content-wrapper.margin-centered .sheet-body :deep(.copybook-row) {
+  align-items: center;
+}
+
+.a4-content-wrapper.margin-centered .sheet-body :deep(.cells-flex) {
+  margin: 0 auto;
 }
 
 /* 页脚 */
@@ -236,12 +270,17 @@ defineProps<{
   font-family: 'KaiTi', 'STKaiti', sans-serif;
 }
 
+.sheet-footer.has-only-page-num {
+  justify-content: center;
+}
+
 .footer-motto {
   letter-spacing: 1px;
 }
 
 .footer-page-num {
   font-family: system-ui, sans-serif;
+  letter-spacing: 0.5px;
 }
 
 /* 打印精确适配 */

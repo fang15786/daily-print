@@ -24,7 +24,7 @@ const props = withDefaults(
     stepTag?: string; // 步骤标识，如 "1" 或 "范"
   }>(),
   {
-    gridType: 'mi',
+    gridType: 'fang',
     gridLineColor: '#e06a55',
     innerLineStyle: 'dashed',
     pinyin: '',

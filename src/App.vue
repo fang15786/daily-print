@@ -3,6 +3,8 @@ import { ref, computed, watch, onMounted } from 'vue';
 import type { CopybookMode, GridStyleConfig, HeaderFooterConfig, CharacterItem } from './types';
 import { extractChineseChars } from './utils/pinyinService';
 import { batchLoadCharacters } from './utils/strokeService';
+import { getDefaultGridConfig } from './utils/gridConfigStorage';
+import { getDefaultInputText } from './utils/textConfigStorage';
 import HeaderBar from './components/HeaderBar.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import A4Page from './components/A4Page.vue';
@@ -14,8 +16,8 @@ import html2canvas from 'html2canvas';
 // 模式
 const mode = ref<CopybookMode>('stroke_order');
 
-// 输入文本默认值（精选生字）
-const inputText = ref('汤知越汤知越汤知越汤知越汤知越汤知越汤知越');
+// 输入文本默认值（优先读取自定义默认打开文字，出厂为一年级常用字）
+const inputText = ref(getDefaultInputText());
 
 // 缩放比例
 const zoomLevel = ref(90);
@@ -29,32 +31,20 @@ const printCopies = ref(1);
 // 加载状态
 const isLoading = ref(false);
 
-// 网格配置
-const gridConfig = ref<GridStyleConfig>({
-  gridType: 'mi',
-  gridSizeMm: 14, // 默认精细 14mm (13字/行)
-  gridLineColor: '#e06a55',
-  gridLineWidth: 1,
-  innerLineStyle: 'dashed',
-  charColor: '#000000',
-  tracingColor: 'gray', // 默认铅笔浅灰，打印清晰不重影
-  tracingOpacity: 0.45,
-  strokePracticeStyle: 'light_tracing', // 默认使用纯浅色做笔顺练习
-  showPinyin: false,
-  pinyinStyle: 'four_lines',
-  showMeta: true
-});
+// 网格配置（优先读取用户偏好的默认格子，初始为系统出厂纯方格）
+const gridConfig = ref<GridStyleConfig>(getDefaultGridConfig());
 
 // 页眉页脚配置（默认不显示顶部标题栏、左侧装订线和底部寄语，纯净全纸排版）
 const headerConfig = ref<HeaderFooterConfig>({
   showHeader: false,
-  title: '汉字笔顺田字格描红帖',
+  title: '汉字规范练字帖',
   subTitle: '每日十分钟 · 规范汉字书写',
   showStudentInfo: false,
   showBindingGuide: false,
   showFooter: false,
   footerMotto: '端端正正写字，堂堂正正做人',
-  showPageNumber: false
+  showPageNumber: true,
+  marginLayout: 'binding'
 });
 
 // 字符数据缓存
@@ -93,25 +83,25 @@ watch(
   { immediate: true }
 );
 
-// 计算每行容纳的格子数量（紧凑排满 A4 纸宽 210mm，左右仅留约 5~7mm 紧凑边距）
+// 计算每行容纳的格子数量（行数和列数各减少 2 个单位，留足装订与书写舒展边距）
 const colsCount = computed(() => {
   const size = gridConfig.value.gridSizeMm || 14;
-  if (size <= 14) return 14; // 14mm: 14 格 (196mm，左右各留 7mm 紧凑边距)
-  if (size <= 16) return 12; // 16mm: 12 格 (192mm，左右各留 9mm 边距)
-  if (size <= 18) return 11; // 18mm: 11 格 (198mm，左右各留 6mm 边距)
-  if (size >= 20) return 10; // 20mm: 10 格 (200mm，左右各留 5mm 边距)
-  return 11;
+  if (size <= 14) return 12; // 14mm: 12 格 (原 14 格减少 2 个单位)
+  if (size <= 16) return 10; // 16mm: 10 格 (原 12 格减少 2 个单位)
+  if (size <= 18) return 9;  // 18mm: 9 格  (原 11 格减少 2 个单位)
+  if (size >= 20) return 8;  // 20mm: 8 格  (原 10 格减少 2 个单位)
+  return 9;
 });
 
-// 计算每页最大容纳行数（根据是否开启页眉/页脚动态释放纸张高度空间，行间距已紧密贴合）
+// 计算每页最大容纳行数（行数减少 2 个单位，预留底部页脚页码及舒展边距）
 const rowsPerPage = computed(() => {
   const size = gridConfig.value.gridSizeMm || 14;
   const withPinyin = gridConfig.value.showPinyin;
   const rowHeightMm = withPinyin ? size * 1.55 : size;
-  // A4 总高 297mm，无页眉页脚纯净排版时预留约 3mm（上下各 1.5mm），14mm 格子恰好排满 21 行
-  let reservedMargin = 3;
+  // A4 总高 297mm，底部页脚预留约 28mm（14mm 规格恰好为 19 行，减少 2 个单位）
+  let reservedMargin = 28;
   if (headerConfig.value.showHeader) reservedMargin += 28;
-  if (headerConfig.value.showFooter || headerConfig.value.showPageNumber) reservedMargin += 15;
+  if (headerConfig.value.showFooter) reservedMargin += 12;
   const availableHeight = 297 - reservedMargin;
   return Math.max(4, Math.floor((availableHeight + 0.01) / rowHeightMm));
 });
@@ -276,30 +266,18 @@ async function handleExportPdf() {
 
 // 重置默认配置
 function handleReset() {
-  inputText.value = '汤知越汤知越汤知越汤知越汤知越汤知越汤知越';
-  gridConfig.value = {
-    gridType: 'mi',
-    gridSizeMm: 14,
-    gridLineColor: '#e06a55',
-    gridLineWidth: 1,
-    innerLineStyle: 'dashed',
-    charColor: '#000000',
-    tracingColor: 'gray',
-    tracingOpacity: 0.45,
-    strokePracticeStyle: 'light_tracing',
-    showPinyin: false,
-    pinyinStyle: 'four_lines',
-    showMeta: true
-  };
+  inputText.value = getDefaultInputText();
+  gridConfig.value = getDefaultGridConfig();
   headerConfig.value = {
     showHeader: false,
-    title: '汉字笔顺田字格描红帖',
+    title: '汉字规范练字帖',
     subTitle: '每日十分钟 · 规范汉字书写',
     showStudentInfo: false,
     showBindingGuide: false,
     showFooter: false,
     footerMotto: '端端正正写字，堂堂正正做人',
-    showPageNumber: false
+    showPageNumber: true,
+    marginLayout: 'binding'
   };
   printCopies.value = 1;
 }
@@ -321,6 +299,7 @@ onMounted(() => {
       v-model:zoom-level="zoomLevel"
       v-model:mobile-active-view="mobileActiveView"
       :print-copies="printCopies"
+      :total-pages="totalPages"
       @print="openPrintModal"
     />
 
@@ -337,6 +316,7 @@ onMounted(() => {
           v-model:grid-config="gridConfig"
           v-model:header-config="headerConfig"
           v-model:print-copies="printCopies"
+          :total-pages="totalPages"
           :is-loading="isLoading"
           @print="openPrintModal"
           @export-pdf="openPrintModal"

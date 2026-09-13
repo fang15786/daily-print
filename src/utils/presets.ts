@@ -13,6 +13,7 @@ export const PRESET_CATEGORIES: PresetCategory[] = [
     id: 'grade1_up',
     name: '一年级上册生字',
     items: [
+      { label: '核心生字：一年级常用19字(整页)', text: '天地人你我他一二三四五上下日月水火山石' },
       { label: '识字一：天地人你我他', text: '天地人你我他' },
       { label: '识字二：金木水火土', text: '一二三四五上下' },
       { label: '识字三：口耳目手足', text: '口耳目手足站坐' },

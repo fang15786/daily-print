@@ -5,6 +5,7 @@ defineProps<{
   zoomLevel: number;
   mobileActiveView: 'settings' | 'preview';
   printCopies?: number;
+  totalPages?: number;
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +24,7 @@ const emit = defineEmits<{
       <div class="brand-text">
         <span class="brand-title">汉字田字格笔顺字帖生成器</span>
         <span class="brand-badge">A4 矢量打印 · 支持打包 APK</span>
+        <span v-if="totalPages" class="page-count-tag" title="当前排版总页数">共 {{ totalPages }} 页</span>
       </div>
     </div>
 
@@ -44,7 +46,7 @@ const emit = defineEmits<{
         @click="emit('update:mobileActiveView', 'preview')"
       >
         <Monitor :size="14" />
-        <span>字帖预览</span>
+        <span>字帖预览<template v-if="totalPages"> ({{ totalPages }}页)</template></span>
       </button>
     </div>
 
@@ -139,6 +141,17 @@ const emit = defineEmits<{
   background: #f1f5f9;
   padding: 2px 7px;
   border-radius: 4px;
+}
+
+.page-count-tag {
+  font-size: 0.74rem;
+  color: #c83c23;
+  background: #fff8f7;
+  border: 1px solid #fed7d2;
+  padding: 1.5px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 /* 移动端视图切换 */

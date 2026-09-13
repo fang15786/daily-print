@@ -28,6 +28,7 @@ export interface HeaderFooterConfig {
   showFooter: boolean; // 是否显示底部页脚（寄语）
   footerMotto: string; // 励志格言
   showPageNumber: boolean; // 是否显示页码
+  marginLayout?: 'binding' | 'centered'; // 'binding' 左宽右窄(装订留白), 'centered' 左右对称居中
 }
 
 export interface StrokeStepItem {
