@@ -234,14 +234,42 @@ const emit = defineEmits<{
 }
 
 @media (max-width: 860px) {
+  .app-header-bar {
+    padding: 0 10px;
+    height: 52px;
+  }
+  .brand-text {
+    display: none;
+  }
+  .seal-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .mobile-view-tabs {
+    display: flex;
+    flex-shrink: 0;
+  }
+  .mobile-tab-btn {
+    padding: 5px 9px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .header-tools {
+    gap: 8px;
+  }
+  .header-print-btn {
+    padding: 6px 11px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
   .zoom-controls {
     display: none;
   }
   .brand-badge {
     display: none;
-  }
-  .mobile-view-tabs {
-    display: flex;
   }
 }
 </style>

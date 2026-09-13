@@ -52,13 +52,15 @@ const strokeStepCells = computed(() => {
   if (strokeCount > 0) {
     const maxSteps = Math.min(strokeCount, props.colsCount - 1);
     for (let i = 1; i <= maxSteps; i++) {
+      // 若总笔画数超过了当前行能容纳的最大步数，确保最后一个格子展示完整字形（所有笔画），不被腰斩
+      const isLastStepCell = i === props.colsCount - 1 && strokeCount > props.colsCount - 1;
       cells.push({
         strokes,
-        activeStrokeCount: i,
+        activeStrokeCount: isLastStepCell ? strokeCount : i,
         highlightLatest: true,
         isTracing: false,
         isBlank: false,
-        stepTag: `${i}`,
+        stepTag: isLastStepCell ? `${strokeCount}` : `${i}`,
         charFallback: item.char
       });
     }
@@ -141,7 +143,7 @@ const pinyinSlots = computed(() => {
       :tracing-color="gridConfig.tracingColor"
     />
 
-    <!-- 下方汉字田字格/米字格行 -->
+    <!-- 下方汉字田字格/米字格行：格子紧密贴合无空隙 -->
     <div class="cells-flex">
       <!-- 笔顺分步模式 -->
       <template v-if="mode === 'stroke_order'">
@@ -201,8 +203,9 @@ const pinyinSlots = computed(() => {
 .cells-flex {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  justify-content: center;
+  width: fit-content;
+  margin: 0 auto;
   gap: 0;
 }
 </style>

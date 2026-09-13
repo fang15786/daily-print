@@ -55,9 +55,9 @@ const gridTypeOptions: { label: string; value: GridType; desc: string }[] = [
 
 // 尺寸选项
 const sizeOptions = [
-  { label: '大格 (20mm / 9字)', value: 20 },
+  { label: '精细 (14mm / 13字)', value: 14 },
   { label: '标准 (18mm / 10字)', value: 18 },
-  { label: '精细 (15mm / 12字)', value: 15 }
+  { label: '大格 (20mm / 9字)', value: 20 }
 ];
 
 // 描红颜色选项

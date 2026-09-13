@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">汉字田字格字帖生成器</string>
-    <string name="title_activity_main">汉字田字格字帖生成器</string>
+    <string name="app_name">每日练字</string>
+    <string name="title_activity_main">每日练字</string>
     <string name="package_name">com.tianzige.copybook</string>
     <string name="custom_url_scheme">com.tianzige.copybook</string>
 </resources>

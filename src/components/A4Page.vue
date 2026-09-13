@@ -132,7 +132,8 @@ defineProps<{
 }
 
 .a4-content-wrapper.has-binding {
-  padding-left: 17mm;
+  padding-left: 18mm;
+  padding-right: 10mm;
 }
 
 .a4-content-wrapper.no-header {
@@ -217,6 +218,7 @@ defineProps<{
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  align-items: center;
   gap: 3mm;
   overflow: hidden;
 }

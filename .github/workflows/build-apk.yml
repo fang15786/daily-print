@@ -11,6 +11,9 @@ on:
       - master
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK
@@ -57,9 +60,37 @@ jobs:
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: 11. 上传 APK 产物供一键下载 (Upload APK Artifact)
+      - name: 11. 整理并命名 APK 安装包 (Prepare APK for Release)
+        run: |
+          mkdir -p dist-apk
+          cp android/app/build/outputs/apk/debug/*.apk dist-apk/meirilianzi-app-debug.apk
+
+      - name: 12. 发布到 GitHub Releases Assets (永久有效、手机直链下载)
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: "每日练字 v1.0.${{ github.run_number }}"
+          body: |
+            ### 📱 每日练字 - Android APK 自动打包完成
+
+            - **应用名称**：每日练字
+            - **包名**：`com.tianzige.copybook`
+            - **版本**：`v1.0.${{ github.run_number }}`
+            - **构建提交**：`${{ github.sha }}`
+
+            ---
+            #### 📥 下载安装方法：
+            在下方 **Assets** 列表中，直接点击 **`meirilianzi-app-debug.apk`** 即可直接下载安装包到手机，无需解压，直接安装，永久有效不限速！
+          draft: false
+          prerelease: false
+          files: dist-apk/meirilianzi-app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 13. 保留 Actions Artifact 备份 (Backup Artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: tianzige-copybook-android-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 30
+          name: meirilianzi-android-debug-apk
+          path: dist-apk/*.apk
+          retention-days: 7

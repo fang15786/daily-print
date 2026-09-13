@@ -28,14 +28,14 @@ const isLoading = ref(false);
 // 网格配置
 const gridConfig = ref<GridStyleConfig>({
   gridType: 'mi',
-  gridSizeMm: 18,
+  gridSizeMm: 14, // 默认精细 14mm (13字/行)
   gridLineColor: '#e06a55',
   gridLineWidth: 1,
   innerLineStyle: 'dashed',
   charColor: '#1a1a1a',
   tracingColor: 'cinnabar',
   tracingOpacity: 0.35,
-  showPinyin: true,
+  showPinyin: false,
   pinyinStyle: 'four_lines',
   showMeta: true
 });
@@ -88,11 +88,12 @@ watch(
   { immediate: true }
 );
 
-// 计算每行容纳的格子数量 (以 180mm 净宽计算)
+// 计算每行容纳的格子数量 (以 182mm 净宽计算，14mm 恰好容纳 13 格)
 const colsCount = computed(() => {
-  const size = gridConfig.value.gridSizeMm || 18;
+  const size = gridConfig.value.gridSizeMm || 14;
+  if (size <= 14) return 13;
+  if (size <= 16) return 12;
   if (size >= 20) return 9;
-  if (size <= 15) return 12;
   return 10;
 });
 
@@ -219,17 +220,71 @@ const totalPages = computed(() => {
     : continuousPages.value.length;
 });
 
+// 缩放后舞台实际高度（mm），避免缩放后容器高度过高产生多余空白
+const stageHeightMm = computed(() => {
+  const pages = Math.max(1, totalPages.value);
+  const totalUnscaledMm = pages * 297 + (pages - 1) * 7.4;
+  return Math.round((totalUnscaledMm * zoomLevel.value) / 100);
+});
+
+// 移动端检测与自适应缩放
+const isMobile = ref(false);
+
+function checkMobile() {
+  if (typeof window === 'undefined') return;
+  isMobile.value = window.innerWidth <= 860;
+}
+
+function initAutoZoom() {
+  if (typeof window === 'undefined') return;
+  const screenW = window.innerWidth;
+  if (screenW <= 860) {
+    // 移动端：根据屏幕可用宽度自适应缩放（A4 宽度 210mm 在 96dpi 下约为 794px）
+    // 左右内边距各留 8px
+    const padding = 16;
+    const availableW = Math.max(280, screenW - padding);
+    const fitZoom = Math.floor((availableW / 794) * 100);
+    zoomLevel.value = Math.max(30, Math.min(100, fitZoom));
+  } else {
+    zoomLevel.value = 90;
+  }
+}
+
+watch(
+  () => mobileActiveView.value,
+  (val) => {
+    if (val === 'preview' && isMobile.value) {
+      if (zoomLevel.value >= 85) {
+        initAutoZoom();
+      }
+    }
+  }
+);
+
 // 打印功能（电脑端调用浏览器打印预览，手机 APK 内调用 Android 原生 PrintManager）
 function handlePrint() {
-  if (typeof window !== 'undefined' && window.AndroidPrinter && typeof window.AndroidPrinter.print === 'function') {
-    window.AndroidPrinter.print();
-  } else {
-    window.print();
+  // 若在移动端且当前在设置面板，先切换至字帖预览再唤起系统打印
+  if (mobileActiveView.value !== 'preview') {
+    mobileActiveView.value = 'preview';
   }
+
+  setTimeout(() => {
+    if (typeof window !== 'undefined' && window.AndroidPrinter && typeof window.AndroidPrinter.print === 'function') {
+      window.AndroidPrinter.print();
+    } else {
+      window.print();
+    }
+  }, 120);
 }
 
 // 导出 PDF 功能
 async function handleExportPdf() {
+  // 如果是在移动端 APK 原生环境中，系统 PrintManager 原生支持“另存为 PDF”及连接所有打印机，直接调起原生打印
+  if (typeof window !== 'undefined' && window.AndroidPrinter && typeof window.AndroidPrinter.print === 'function') {
+    handlePrint();
+    return;
+  }
+
   const sheets = document.querySelectorAll<HTMLElement>('.a4-page-sheet');
   if (!sheets || sheets.length === 0) return;
 
@@ -267,14 +322,14 @@ function handleReset() {
   inputText.value = '天地人你我他一二三四五上下';
   gridConfig.value = {
     gridType: 'mi',
-    gridSizeMm: 18,
+    gridSizeMm: 14,
     gridLineColor: '#e06a55',
     gridLineWidth: 1,
     innerLineStyle: 'dashed',
     charColor: '#1a1a1a',
     tracingColor: 'cinnabar',
     tracingOpacity: 0.35,
-    showPinyin: true,
+    showPinyin: false,
     pinyinStyle: 'four_lines',
     showMeta: true
   };
@@ -291,6 +346,11 @@ function handleReset() {
 }
 
 onMounted(() => {
+  checkMobile();
+  initAutoZoom();
+  window.addEventListener('resize', () => {
+    checkMobile();
+  });
   loadStrokesForCurrentText();
 });
 </script>
@@ -328,57 +388,101 @@ onMounted(() => {
         class="preview-viewport"
         :class="{ 'mobile-hidden': mobileActiveView !== 'preview' }"
       >
-        <!-- 缩放与居中画布包装器 -->
+        <!-- 舞台容器：计算缩放后的实际占位，通过 margin: 0 auto 居中，彻底杜绝负坐标截断左侧格子的问题 -->
         <div
-          class="canvas-scale-wrapper"
+          class="canvas-stage"
           :style="{
-            transform: `scale(${zoomLevel / 100})`,
-            transformOrigin: 'top center'
+            width: `${(210 * zoomLevel) / 100}mm`,
+            minWidth: `${(210 * zoomLevel) / 100}mm`,
+            height: `${stageHeightMm}mm`
           }"
         >
-          <!-- 笔顺分步模式渲染 -->
-          <template v-if="mode === 'stroke_order'">
-            <A4Page
-              v-for="(pageChars, pIdx) in strokeOrderPages"
-              :key="pIdx"
-              :page-index="pIdx + 1"
-              :total-pages="totalPages"
-              :grid-config="gridConfig"
-              :header-config="headerConfig"
-              :cols-count="colsCount"
-            >
-              <CopybookRow
-                v-for="(item, rIdx) in pageChars"
-                :key="rIdx"
-                :mode="'stroke_order'"
-                :char-item="item"
-                :cols-count="colsCount"
+          <!-- 缩放画布包装器：原点设为 top left，与舞台左边界严格对其 -->
+          <div
+            class="canvas-scale-wrapper"
+            :style="{
+              transform: `scale(${zoomLevel / 100})`,
+              transformOrigin: 'top left',
+              width: '210mm'
+            }"
+          >
+            <!-- 笔顺分步模式渲染 -->
+            <template v-if="mode === 'stroke_order'">
+              <A4Page
+                v-for="(pageChars, pIdx) in strokeOrderPages"
+                :key="pIdx"
+                :page-index="pIdx + 1"
+                :total-pages="totalPages"
                 :grid-config="gridConfig"
-              />
-            </A4Page>
-          </template>
+                :header-config="headerConfig"
+                :cols-count="colsCount"
+              >
+                <CopybookRow
+                  v-for="(item, rIdx) in pageChars"
+                  :key="rIdx"
+                  :mode="'stroke_order'"
+                  :char-item="item"
+                  :cols-count="colsCount"
+                  :grid-config="gridConfig"
+                />
+              </A4Page>
+            </template>
 
-          <!-- 连续课文/唐诗模式渲染 -->
-          <template v-else-if="mode === 'continuous'">
-            <A4Page
-              v-for="(pageRows, pIdx) in continuousPages"
-              :key="pIdx"
-              :page-index="pIdx + 1"
-              :total-pages="totalPages"
-              :grid-config="gridConfig"
-              :header-config="headerConfig"
-              :cols-count="colsCount"
-            >
-              <CopybookRow
-                v-for="(rowCells, rIdx) in pageRows"
-                :key="rIdx"
-                :mode="'continuous'"
-                :continuous-cells="rowCells"
-                :cols-count="colsCount"
+            <!-- 连续课文/唐诗模式渲染 -->
+            <template v-else-if="mode === 'continuous'">
+              <A4Page
+                v-for="(pageRows, pIdx) in continuousPages"
+                :key="pIdx"
+                :page-index="pIdx + 1"
+                :total-pages="totalPages"
                 :grid-config="gridConfig"
-              />
-            </A4Page>
-          </template>
+                :header-config="headerConfig"
+                :cols-count="colsCount"
+              >
+                <CopybookRow
+                  v-for="(rowCells, rIdx) in pageRows"
+                  :key="rIdx"
+                  :mode="'continuous'"
+                  :continuous-cells="rowCells"
+                  :cols-count="colsCount"
+                  :grid-config="gridConfig"
+                />
+              </A4Page>
+            </template>
+          </div>
+        </div>
+
+        <!-- 移动端悬浮缩放控制栏（方便手机端一键自适应或微调） -->
+        <div
+          v-if="isMobile && mobileActiveView === 'preview'"
+          class="mobile-floating-zoom"
+        >
+          <button
+            type="button"
+            class="zoom-float-btn"
+            title="缩小"
+            :disabled="zoomLevel <= 30"
+            @click="zoomLevel = Math.max(30, zoomLevel - 5)"
+          >
+            －
+          </button>
+          <button
+            type="button"
+            class="zoom-float-btn zoom-fit-btn"
+            title="自适应手机宽度"
+            @click="initAutoZoom"
+          >
+            {{ zoomLevel }}% 适应全屏
+          </button>
+          <button
+            type="button"
+            class="zoom-float-btn"
+            title="放大"
+            :disabled="zoomLevel >= 120"
+            @click="zoomLevel = Math.min(120, zoomLevel + 5)"
+          >
+            ＋
+          </button>
         </div>
       </main>
     </div>
@@ -420,11 +524,16 @@ onMounted(() => {
   height: 100%;
   overflow-y: auto;
   overflow-x: auto;
-  padding: 30px 20px;
+  padding: 24px 16px;
   box-sizing: border-box;
-  display: flex;
-  justify-content: center;
+  display: block;
+  position: relative;
   background: #e2e8f0;
+}
+
+.canvas-stage {
+  margin: 0 auto;
+  position: relative;
 }
 
 .canvas-scale-wrapper {
@@ -432,6 +541,54 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.mobile-floating-zoom {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 6px 10px;
+  border-radius: 30px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.24);
+}
+
+.zoom-float-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border: none;
+  color: #ffffff;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.zoom-float-btn:active {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(0.95);
+}
+
+.zoom-float-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.zoom-fit-btn {
+  background: #c83c23;
+  color: #ffffff;
+  padding: 5px 14px;
+  font-size: 0.82rem;
 }
 
 .loading-overlay {
@@ -481,7 +638,7 @@ onMounted(() => {
     display: none;
   }
   .preview-viewport {
-    padding: 16px 8px;
+    padding: 12px 6px 70px 6px; /* 底部预留空间给浮动栏 */
   }
 }
 
@@ -489,13 +646,16 @@ onMounted(() => {
 @media print {
   .app-header-bar,
   .panel-container,
-  .loading-overlay {
+  .panel-container.mobile-hidden,
+  .loading-overlay,
+  .mobile-floating-zoom {
     display: none !important;
   }
 
   .app-layout,
   .app-main-content,
-  .preview-viewport {
+  .preview-viewport,
+  .preview-viewport.mobile-hidden {
     display: block !important;
     overflow: visible !important;
     height: auto !important;
@@ -505,8 +665,16 @@ onMounted(() => {
     background: transparent !important;
   }
 
+  .canvas-stage {
+    width: auto !important;
+    min-width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+  }
+
   .canvas-scale-wrapper {
     transform: none !important;
+    width: auto !important;
   }
 }
 </style>
