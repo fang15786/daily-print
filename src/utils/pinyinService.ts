@@ -1,11 +1,20 @@
 import { pinyin } from 'pinyin-pro';
 
 /**
- * 获取单个汉字的拼音（带声调符号）
+ * 格式化为标准小学语文教材手写规范（将印刷体单字符 a 与 g 转为标准单层 ɑ 与单环 ɡ）
+ */
+export function formatStandardPinyin(py: string): string {
+  if (!py) return '';
+  return py.replace(/a/g, 'ɑ').replace(/g/g, 'ɡ');
+}
+
+/**
+ * 获取单个汉字的拼音（带声调符号并转为教材规范拼音体）
  */
 export function getCharPinyin(char: string): string {
   if (!char || !isChineseChar(char)) return '';
-  return pinyin(char, { toneType: 'symbol' });
+  const raw = pinyin(char, { toneType: 'symbol' });
+  return formatStandardPinyin(raw);
 }
 
 /**
@@ -13,7 +22,7 @@ export function getCharPinyin(char: string): string {
  */
 export function getTextPinyins(text: string): string[] {
   const chars = Array.from(text);
-  return chars.map(c => isChineseChar(c) ? pinyin(c, { toneType: 'symbol' }) : '');
+  return chars.map(c => (isChineseChar(c) ? getCharPinyin(c) : ''));
 }
 
 /**

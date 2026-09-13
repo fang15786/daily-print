@@ -100,7 +100,7 @@ const colsCount = computed(() => {
 const rowsPerPage = computed(() => {
   const size = gridConfig.value.gridSizeMm || 18;
   const withPinyin = gridConfig.value.showPinyin;
-  const rowHeightMm = withPinyin ? size * 1.45 + 3 : size + 3;
+  const rowHeightMm = withPinyin ? size * 1.55 + 3 : size + 3;
   // A4 总高 297mm，基准上下边距约 22mm
   let availableHeight = 297 - 22;
   if (headerConfig.value.showHeader) availableHeight -= 28;

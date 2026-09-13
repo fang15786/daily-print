@@ -87,32 +87,6 @@ const dashArray = computed(() => {
       minWidth: `${sizeMm}mm`
     }"
   >
-    <!-- 拼音四线三格区 -->
-    <div
-      v-if="showPinyin"
-      class="pinyin-box"
-      :style="{
-        height: `${sizeMm * 0.45}mm`,
-        borderBottom: `1px solid ${gridLineColor}40`
-      }"
-    >
-      <svg
-        v-if="pinyinStyle === 'four_lines'"
-        viewBox="0 0 100 45"
-        preserveAspectRatio="none"
-        class="pinyin-lines-svg"
-      >
-        <!-- 四条基准水平线 -->
-        <line x1="0" y1="5" x2="100" y2="5" :stroke="gridLineColor" stroke-width="0.75" stroke-dasharray="2,2" opacity="0.5" />
-        <line x1="0" y1="18" x2="100" y2="18" :stroke="gridLineColor" stroke-width="0.9" opacity="0.65" />
-        <line x1="0" y1="31" x2="100" y2="31" :stroke="gridLineColor" stroke-width="0.9" opacity="0.65" />
-        <line x1="0" y1="44" x2="100" y2="44" :stroke="gridLineColor" stroke-width="0.75" stroke-dasharray="2,2" opacity="0.5" />
-      </svg>
-      <!-- 拼音文字 -->
-      <span class="pinyin-text" :style="{ color: charColor }">
-        {{ pinyin }}
-      </span>
-    </div>
 
     <!-- 核心田字格/米字格 SVG -->
     <div
@@ -226,35 +200,6 @@ const dashArray = computed(() => {
   box-sizing: border-box;
 }
 
-.pinyin-box {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.pinyin-lines-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.pinyin-text {
-  position: relative;
-  z-index: 2;
-  font-family: 'Century Gothic', 'KaiTi', 'STKaiti', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.5px;
-  transform: translateY(1px);
-}
 
 .grid-square {
   position: relative;

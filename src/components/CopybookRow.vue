@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { CharacterItem, GridStyleConfig } from '../types';
 import GridSvg from './GridSvg.vue';
+import PinyinRowSvg from './PinyinRowSvg.vue';
 
 const props = defineProps<{
   mode: 'stroke_order' | 'continuous' | 'stroke_basic';
@@ -36,7 +37,7 @@ const strokeStepCells = computed(() => {
     charFallback?: string;
   }[] = [];
 
-  // 第 1 格：完整范字（带拼音）
+  // 第 1 格：完整范字
   cells.push({
     strokes,
     activeStrokeCount: -1,
@@ -95,13 +96,55 @@ const strokeStepCells = computed(() => {
 
   return cells.slice(0, props.colsCount);
 });
+
+// 计算整排四线三格拼音槽数据
+const pinyinSlots = computed(() => {
+  if (!props.gridConfig.showPinyin) return [];
+
+  if (props.mode === 'stroke_order') {
+    const py = props.charItem?.pinyin || '';
+    const cells = strokeStepCells.value;
+    return cells.map((cell, idx) => {
+      if (idx === 0) {
+        // 范字：黑色标准拼音
+        return { pinyin: py, isTracing: false, isBlank: false };
+      } else if (cell.isTracing) {
+        // 描红格上方：浅色描红拼音，供学生描读
+        return { pinyin: py, isTracing: true, isBlank: false };
+      } else {
+        // 笔顺步骤与空白练字格：干净的标准四线三格，供学生自写拼音
+        return { pinyin: '', isTracing: false, isBlank: false };
+      }
+    });
+  } else if (props.mode === 'continuous') {
+    return (props.continuousCells || []).map((cell) => ({
+      pinyin: cell.pinyin,
+      isTracing: cell.isTracing,
+      isBlank: cell.isBlank
+    }));
+  }
+
+  return [];
+});
 </script>
 
 <template>
   <div class="copybook-row">
-    <!-- 笔顺分步模式 -->
-    <template v-if="mode === 'stroke_order'">
-      <div class="cells-flex">
+    <!-- 整排贯穿的标准拼音四线三格（与下方田字格严格对应） -->
+    <PinyinRowSvg
+      v-if="gridConfig.showPinyin"
+      :cols-count="colsCount"
+      :col-width-mm="gridConfig.gridSizeMm"
+      :grid-line-color="gridConfig.gridLineColor"
+      :items="pinyinSlots"
+      :char-color="gridConfig.charColor"
+      :tracing-color="gridConfig.tracingColor"
+    />
+
+    <!-- 下方汉字田字格/米字格行 -->
+    <div class="cells-flex">
+      <!-- 笔顺分步模式 -->
+      <template v-if="mode === 'stroke_order'">
         <GridSvg
           v-for="(cell, cIdx) in strokeStepCells"
           :key="cIdx"
@@ -109,9 +152,7 @@ const strokeStepCells = computed(() => {
           :grid-line-color="gridConfig.gridLineColor"
           :inner-line-style="gridConfig.innerLineStyle"
           :size-mm="gridConfig.gridSizeMm"
-          :show-pinyin="gridConfig.showPinyin && cIdx === 0"
-          :pinyin="cIdx === 0 && charItem ? charItem.pinyin : ''"
-          :pinyin-style="gridConfig.pinyinStyle"
+          :show-pinyin="false"
           :strokes="cell.strokes"
           :active-stroke-count="cell.activeStrokeCount"
           :highlight-latest="cell.highlightLatest"
@@ -122,12 +163,10 @@ const strokeStepCells = computed(() => {
           :tracing-color="gridConfig.tracingColor"
           :step-tag="cell.stepTag"
         />
-      </div>
-    </template>
+      </template>
 
-    <!-- 连续/词语/古诗模式 -->
-    <template v-else-if="mode === 'continuous'">
-      <div class="cells-flex">
+      <!-- 连续/词语/古诗模式 -->
+      <template v-else-if="mode === 'continuous'">
         <GridSvg
           v-for="(cell, cIdx) in (continuousCells || [])"
           :key="cIdx"
@@ -135,9 +174,7 @@ const strokeStepCells = computed(() => {
           :grid-line-color="gridConfig.gridLineColor"
           :inner-line-style="gridConfig.innerLineStyle"
           :size-mm="gridConfig.gridSizeMm"
-          :show-pinyin="gridConfig.showPinyin && !cell.isBlank"
-          :pinyin="cell.pinyin"
-          :pinyin-style="gridConfig.pinyinStyle"
+          :show-pinyin="false"
           :strokes="cell.strokes"
           :active-stroke-count="-1"
           :is-tracing="cell.isTracing"
@@ -147,14 +184,15 @@ const strokeStepCells = computed(() => {
           :tracing-color="gridConfig.tracingColor"
           :step-tag="cell.isModel ? '范' : ''"
         />
-      </div>
-    </template>
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .copybook-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -162,7 +200,7 @@ const strokeStepCells = computed(() => {
 
 .cells-flex {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   width: 100%;
   gap: 0;
