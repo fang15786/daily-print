@@ -38,9 +38,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 6. 自动接受 Android SDK 协议 (Accept Android SDK Licenses)
+      - name: 6. 安装 Android 35 平台并接受协议 (Setup Android 35 SDK)
         run: |
           yes | sdkmanager --licenses || true
+          echo "y" | sdkmanager "platforms;android-35" "build-tools;35.0.0" || true
 
       - name: 7. 配置 Gradle 自动化构建环境 (Setup Gradle)
         uses: gradle/actions/setup-gradle@v4
