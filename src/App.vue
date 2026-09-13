@@ -1,0 +1,501 @@
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
+import type { CopybookMode, GridStyleConfig, HeaderFooterConfig, CharacterItem } from './types';
+import { extractChineseChars } from './utils/pinyinService';
+import { batchLoadCharacters } from './utils/strokeService';
+import HeaderBar from './components/HeaderBar.vue';
+import SettingsPanel from './components/SettingsPanel.vue';
+import A4Page from './components/A4Page.vue';
+import CopybookRow from './components/CopybookRow.vue';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+// 模式
+const mode = ref<CopybookMode>('stroke_order');
+
+// 输入文本默认值（精选生字）
+const inputText = ref('天地人你我他一二三四五上下');
+
+// 缩放比例
+const zoomLevel = ref(90);
+
+// 移动端当前活动视图
+const mobileActiveView = ref<'settings' | 'preview'>('settings');
+
+// 加载状态
+const isLoading = ref(false);
+
+// 网格配置
+const gridConfig = ref<GridStyleConfig>({
+  gridType: 'mi',
+  gridSizeMm: 18,
+  gridLineColor: '#e06a55',
+  gridLineWidth: 1,
+  innerLineStyle: 'dashed',
+  charColor: '#1a1a1a',
+  tracingColor: 'cinnabar',
+  tracingOpacity: 0.35,
+  showPinyin: true,
+  pinyinStyle: 'four_lines',
+  showMeta: true
+});
+
+// 页眉页脚配置
+const headerConfig = ref<HeaderFooterConfig>({
+  title: '汉字笔顺田字格描红帖',
+  subTitle: '每日十分钟 · 规范汉字书写',
+  showStudentInfo: true,
+  showBindingGuide: true,
+  footerMotto: '端端正正写字，堂堂正正做人',
+  showPageNumber: true
+});
+
+// 字符数据缓存
+const loadedCharsMap = ref<Map<string, CharacterItem>>(new Map());
+
+// 提取当前输入的有效汉字列表
+const rawChineseChars = computed(() => {
+  const list = extractChineseChars(inputText.value);
+  return list.length > 0 ? list : ['永'];
+});
+
+// 异步加载笔画数据
+async function loadStrokesForCurrentText() {
+  if (rawChineseChars.value.length === 0) return;
+  isLoading.value = true;
+  try {
+    const map = await batchLoadCharacters(rawChineseChars.value);
+    loadedCharsMap.value = new Map([...loadedCharsMap.value, ...map]);
+  } catch (e) {
+    console.error('加载笔画数据出错', e);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// 监听输入文本变化防抖加载
+let timer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  () => inputText.value,
+  () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      loadStrokesForCurrentText();
+    }, 400);
+  },
+  { immediate: true }
+);
+
+// 计算每行容纳的格子数量 (以 180mm 净宽计算)
+const colsCount = computed(() => {
+  const size = gridConfig.value.gridSizeMm || 18;
+  if (size >= 20) return 9;
+  if (size <= 15) return 12;
+  return 10;
+});
+
+// 计算每页最大容纳行数
+const rowsPerPage = computed(() => {
+  const size = gridConfig.value.gridSizeMm || 18;
+  const withPinyin = gridConfig.value.showPinyin;
+  const rowHeightMm = withPinyin ? size * 1.45 + 3 : size + 3;
+  // A4 可用主体高度约 240mm
+  return Math.max(4, Math.floor(240 / rowHeightMm));
+});
+
+// 页面数据结构：模式 1（笔顺模式）分页
+const strokeOrderPages = computed(() => {
+  const chars = rawChineseChars.value;
+  const perPage = rowsPerPage.value;
+  const pages: CharacterItem[][] = [];
+
+  for (let i = 0; i < chars.length; i += perPage) {
+    const pageChars = chars.slice(i, i + perPage).map((c) => {
+      return (
+        loadedCharsMap.value.get(c) || {
+          char: c,
+          pinyin: '',
+          strokes: [],
+          strokeCount: 0
+        }
+      );
+    });
+    pages.push(pageChars);
+  }
+
+  return pages.length > 0 ? pages : [[]];
+});
+
+// 页面数据结构：模式 2（连续排版模式）分页
+const continuousPages = computed(() => {
+  const chars = rawChineseChars.value;
+  const cols = colsCount.value;
+  const rows = rowsPerPage.value;
+
+  // 将字符切分成行，每行附带 1 行范字 + 1 行描红 + 1 行自写（经典三行临摹法）
+  interface ContinuousCell {
+    char: string;
+    pinyin: string;
+    strokes?: string[];
+    isTracing: boolean;
+    isBlank: boolean;
+    isModel?: boolean;
+  }
+
+  const allRows: ContinuousCell[][] = [];
+
+  // 按每 cols 个字切分输入内容
+  for (let i = 0; i < chars.length; i += cols) {
+    const slice = chars.slice(i, i + cols);
+
+    // 行 1：范字
+    const modelRow: ContinuousCell[] = [];
+    // 行 2：描红
+    const traceRow: ContinuousCell[] = [];
+    // 行 3：自主练写空白格
+    const blankRow: ContinuousCell[] = [];
+
+    slice.forEach((char) => {
+      const item = loadedCharsMap.value.get(char);
+      const strokes = item?.strokes || [];
+      const pinyin = item?.pinyin || '';
+
+      modelRow.push({
+        char,
+        pinyin,
+        strokes,
+        isTracing: false,
+        isBlank: false,
+        isModel: true
+      });
+
+      traceRow.push({
+        char,
+        pinyin,
+        strokes,
+        isTracing: true,
+        isBlank: false
+      });
+
+      blankRow.push({
+        char: '',
+        pinyin: '',
+        strokes: [],
+        isTracing: false,
+        isBlank: true
+      });
+    });
+
+    // 补齐行尾空白格
+    while (modelRow.length < cols) {
+      modelRow.push({ char: '', pinyin: '', isTracing: false, isBlank: true });
+      traceRow.push({ char: '', pinyin: '', isTracing: false, isBlank: true });
+      blankRow.push({ char: '', pinyin: '', isTracing: false, isBlank: true });
+    }
+
+    allRows.push(modelRow);
+    allRows.push(traceRow);
+    allRows.push(blankRow);
+  }
+
+  // 分页划分
+  const pages: ContinuousCell[][][] = [];
+  for (let i = 0; i < allRows.length; i += rows) {
+    pages.push(allRows.slice(i, i + rows));
+  }
+
+  return pages.length > 0 ? pages : [[]];
+});
+
+// 总页数
+const totalPages = computed(() => {
+  return mode.value === 'stroke_order'
+    ? strokeOrderPages.value.length
+    : continuousPages.value.length;
+});
+
+// 打印功能
+function handlePrint() {
+  window.print();
+}
+
+// 导出 PDF 功能
+async function handleExportPdf() {
+  const sheets = document.querySelectorAll<HTMLElement>('.a4-page-sheet');
+  if (!sheets || sheets.length === 0) return;
+
+  isLoading.value = true;
+  try {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+
+    for (let i = 0; i < sheets.length; i++) {
+      const sheet = sheets[i];
+      const canvas = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      if (i > 0) {
+        pdf.addPage('a4', 'portrait');
+      }
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+    }
+
+    pdf.save(`${headerConfig.value.title || '汉字田字格字帖'}.pdf`);
+  } catch (err) {
+    console.error('导出 PDF 异常', err);
+    // 降级使用原生打印
+    window.print();
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// 重置默认配置
+function handleReset() {
+  inputText.value = '天地人你我他一二三四五上下';
+  gridConfig.value = {
+    gridType: 'mi',
+    gridSizeMm: 18,
+    gridLineColor: '#e06a55',
+    gridLineWidth: 1,
+    innerLineStyle: 'dashed',
+    charColor: '#1a1a1a',
+    tracingColor: 'cinnabar',
+    tracingOpacity: 0.35,
+    showPinyin: true,
+    pinyinStyle: 'four_lines',
+    showMeta: true
+  };
+  headerConfig.value = {
+    title: '汉字笔顺田字格描红帖',
+    subTitle: '每日十分钟 · 规范汉字书写',
+    showStudentInfo: true,
+    showBindingGuide: true,
+    footerMotto: '端端正正写字，堂堂正正做人',
+    showPageNumber: true
+  };
+}
+
+onMounted(() => {
+  loadStrokesForCurrentText();
+});
+</script>
+
+<template>
+  <div class="app-layout">
+    <!-- 顶部导航栏 -->
+    <HeaderBar
+      v-model:zoom-level="zoomLevel"
+      v-model:mobile-active-view="mobileActiveView"
+      @print="handlePrint"
+    />
+
+    <!-- 主体区域 -->
+    <div class="app-main-content">
+      <!-- 左侧设置面板 -->
+      <div
+        class="panel-container"
+        :class="{ 'mobile-hidden': mobileActiveView !== 'settings' }"
+      >
+        <SettingsPanel
+          v-model:mode="mode"
+          v-model:input-text="inputText"
+          v-model:grid-config="gridConfig"
+          v-model:header-config="headerConfig"
+          :is-loading="isLoading"
+          @print="handlePrint"
+          @export-pdf="handleExportPdf"
+          @reset="handleReset"
+        />
+      </div>
+
+      <!-- 右侧 A4 字帖预览视口 -->
+      <main
+        class="preview-viewport"
+        :class="{ 'mobile-hidden': mobileActiveView !== 'preview' }"
+      >
+        <!-- 缩放与居中画布包装器 -->
+        <div
+          class="canvas-scale-wrapper"
+          :style="{
+            transform: `scale(${zoomLevel / 100})`,
+            transformOrigin: 'top center'
+          }"
+        >
+          <!-- 笔顺分步模式渲染 -->
+          <template v-if="mode === 'stroke_order'">
+            <A4Page
+              v-for="(pageChars, pIdx) in strokeOrderPages"
+              :key="pIdx"
+              :page-index="pIdx + 1"
+              :total-pages="totalPages"
+              :grid-config="gridConfig"
+              :header-config="headerConfig"
+              :cols-count="colsCount"
+            >
+              <CopybookRow
+                v-for="(item, rIdx) in pageChars"
+                :key="rIdx"
+                :mode="'stroke_order'"
+                :char-item="item"
+                :cols-count="colsCount"
+                :grid-config="gridConfig"
+              />
+            </A4Page>
+          </template>
+
+          <!-- 连续课文/唐诗模式渲染 -->
+          <template v-else-if="mode === 'continuous'">
+            <A4Page
+              v-for="(pageRows, pIdx) in continuousPages"
+              :key="pIdx"
+              :page-index="pIdx + 1"
+              :total-pages="totalPages"
+              :grid-config="gridConfig"
+              :header-config="headerConfig"
+              :cols-count="colsCount"
+            >
+              <CopybookRow
+                v-for="(rowCells, rIdx) in pageRows"
+                :key="rIdx"
+                :mode="'continuous'"
+                :continuous-cells="rowCells"
+                :cols-count="colsCount"
+                :grid-config="gridConfig"
+              />
+            </A4Page>
+          </template>
+        </div>
+      </main>
+    </div>
+
+    <!-- 加载遮罩提示 -->
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-card">
+        <div class="spinner"></div>
+        <span>正在生成矢量字帖笔画...</span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.app-main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel-container {
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.preview-viewport {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 30px 20px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  background: #e2e8f0;
+}
+
+.canvas-scale-wrapper {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading-overlay {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+}
+
+.loading-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(30, 41, 59, 0.9);
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 30px;
+  font-size: 0.84rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式移动端适配 */
+@media (max-width: 860px) {
+  .app-main-content {
+    flex-direction: column;
+  }
+  .panel-container.mobile-hidden {
+    display: none;
+  }
+  .preview-viewport.mobile-hidden {
+    display: none;
+  }
+  .preview-viewport {
+    padding: 16px 8px;
+  }
+}
+
+/* 打印样式：只打印 A4 字帖 */
+@media print {
+  .app-header-bar,
+  .panel-container,
+  .loading-overlay {
+    display: none !important;
+  }
+
+  .app-layout,
+  .app-main-content,
+  .preview-viewport {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  .canvas-scale-wrapper {
+    transform: none !important;
+  }
+}
+</style>

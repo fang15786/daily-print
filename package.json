@@ -1,0 +1,31 @@
+{
+  "name": "print",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@lucide/vue": "^1.45.0",
+    "hanzi-writer": "^3.7.3",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-vue-next": "^1.0.0",
+    "pinyin-pro": "^3.29.4",
+    "vue": "^3.5.42"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.9",
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.2",
+    "vite": "^6.4.3",
+    "vue-tsc": "^3.3.11"
+  }
+}
